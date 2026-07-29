@@ -1,0 +1,3 @@
+* @zopencommunity/libgit2-maintainers
+buildenv @zopencommunity/build-maintainers
+*.patch @zopencommunity/build-maintainers

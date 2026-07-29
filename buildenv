@@ -1,0 +1,82 @@
+# bump: libgit2-version /LIBGIT2_VERSION="(.*)"/ https://github.com/libgit2/libgit2.git|*
+LIBGIT2_VERSION="1.9.0"
+
+export ZOPEN_BUILD_LINE="STABLE"
+export ZOPEN_CATEGORIES="development library"
+export ZOPEN_STABLE_URL="https://github.com/libgit2/libgit2/archive/refs/tags/v${LIBGIT2_VERSION}.tar.gz"
+# libssh2, openssl, zlib, and libpcre2 are all in zopencommunity
+export ZOPEN_STABLE_DEPS="cmake make zoslib openssl zlib libpcre2 libssh2 pkgconfig"
+
+export ZOPEN_COMP=CLANG
+
+# On z/OS, force stddef.h to be included first so size_t is defined
+# before zoslib headers that reference it.
+export ZOPEN_EXTRA_CFLAGS="-include stddef.h"
+export ZOPEN_EXTRA_CXXFLAGS="-include stddef.h"
+
+export ZOPEN_CONFIGURE="cmake"
+export ZOPEN_CONFIGURE_OPTS="-S . -B build \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=\$ZOPEN_INSTALL_DIR \
+  -DCMAKE_C_COMPILER_WORKS=1 \
+  -DCMAKE_CXX_COMPILER_WORKS=1 \
+  -DBUILD_SHARED_LIBS=ON \
+  -DBUILD_TESTS=OFF \
+  -DBUILD_CLI=OFF \
+  -DBUILD_EXAMPLES=OFF \
+  -DUSE_SSH=libssh2 \
+  -DUSE_HTTPS=OpenSSL \
+  -DUSE_SHA1=CollisionDetection \
+  -DUSE_COMPRESSION=zlib \
+  -DUSE_REGEX=pcre2 \
+  -DUSE_THREADS=ON \
+  -DREGEX_BACKEND=pcre2"
+
+export ZOPEN_MAKE="cmake"
+export ZOPEN_MAKE_OPTS="--build build"
+# Prevent zopen from appending CC=...CFLAGS=... to cmake commands
+export ZOPEN_MAKE_MINIMAL="yes"
+
+export ZOPEN_INSTALL="cmake"
+export ZOPEN_INSTALL_OPTS="--install build"
+export ZOPEN_INSTALL_MINIMAL="yes"
+
+zopen_check_results()
+{
+  dir="$1"
+  pfx="$2"
+
+  # Check runs after build but before install; verify library in cmake build/ dir.
+  if [ -f "./build/libgit2.so" ] || [ -f "./build/libgit2.a" ] || [ -f "./build/libgit2.x" ]; then
+    actualFailures=0
+    totalTests=1
+    expectedFailures=0
+  else
+    actualFailures=1
+    totalTests=1
+    expectedFailures=0
+  fi
+
+  cat <<ZZ
+actualFailures:$actualFailures
+totalTests:$totalTests
+expectedFailures:$expectedFailures
+ZZ
+}
+
+zopen_append_to_env()
+{
+cat <<ZZ
+if [ ! -z "\$ZOPEN_IN_ZOPEN_BUILD" ]; then
+  export ZOPEN_EXTRA_CFLAGS="\${ZOPEN_EXTRA_CFLAGS} -I\$PWD/include"
+  export ZOPEN_EXTRA_CXXFLAGS="\${ZOPEN_EXTRA_CXXFLAGS} -I\$PWD/include"
+  export ZOPEN_EXTRA_LDFLAGS="\${ZOPEN_EXTRA_LDFLAGS} -L\$PWD/lib"
+  export ZOPEN_EXTRA_LIBS="\${ZOPEN_EXTRA_LIBS} -lgit2"
+fi
+ZZ
+}
+
+zopen_get_version()
+{
+  echo "${LIBGIT2_VERSION}"
+}
