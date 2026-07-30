@@ -11,10 +11,14 @@ export ZOPEN_COMP=CLANG
 
 # On z/OS, set feature-test macros to unlock POSIX types (ssize_t, SIZE_MAX).
 # Force-include stdbool.h for bool in C files.
-# Do NOT force sys/types.h or limits.h — they pull in system string.h before
-# zoslib can override it, causing stpcpy redefinition errors.
-export ZOPEN_EXTRA_CFLAGS="-include stddef.h -include stdbool.h -D_OPEN_SYS_FILE_EXT=1 -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200809L"
-export ZOPEN_EXTRA_CXXFLAGS="-include stddef.h -include stdbool.h -D_OPEN_SYS_FILE_EXT=1 -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200809L"
+# Do NOT force sys/types.h, limits.h, or _POSIX_C_SOURCE=200809L:
+#   _POSIX_C_SOURCE=200809L sets __SUSV4_POSIX which causes the system
+#   string.h to declare stpcpy via __new4302(), then zoslib's string.h
+#   redeclares it with __attribute__((visibility("default"))) — a "different
+#   kind of symbol" error in ibm-clang64. _XOPEN_SOURCE=600 is sufficient
+#   and does NOT trigger __SUSV4_POSIX.
+export ZOPEN_EXTRA_CFLAGS="-include stddef.h -include stdbool.h -D_OPEN_SYS_FILE_EXT=1 -D_XOPEN_SOURCE=600"
+export ZOPEN_EXTRA_CXXFLAGS="-include stddef.h -include stdbool.h -D_OPEN_SYS_FILE_EXT=1 -D_XOPEN_SOURCE=600"
 
 export ZOPEN_CONFIGURE="cmake"
 export ZOPEN_CONFIGURE_OPTS="-S . -B build \
