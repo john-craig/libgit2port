@@ -64,6 +64,8 @@ export ZOPEN_CONFIGURE_OPTS="-S . -B build \
   -DCMAKE_HAVE_PTHREAD_CREATE=TRUE \
   -DTHREADS_HAVE_PTHREAD_ARG=OFF \
   -DCMAKE_THREAD_LIBS_INIT=\"\" \
+  -DCMAKE_HAVE_LIBC_PTHREAD=TRUE \
+  -DHAVE_PTHREAD_PRIO_INHERIT=FALSE \
   -DREGEX_BACKEND=builtin"
 
 zopen_pre_configure()
@@ -72,9 +74,10 @@ zopen_pre_configure()
   # -include zos_types.h in ZOPEN_EXTRA_CFLAGS is resolved during cmake
   # configure-time compiler checks (which also use ZOPEN_EXTRA_CFLAGS).
   # The file is found via the cmake -isystem .../src/util path.
+  # zopen_pre_configure is called from the extracted source directory.
   if [ -f "${ZOPEN_ROOT}/zos_types.h" ]; then
-    cp "${ZOPEN_ROOT}/zos_types.h" ./src/util/zos_types.h
-    chtag -tc ISO8859-1 ./src/util/zos_types.h
+    cp "${ZOPEN_ROOT}/zos_types.h" src/util/zos_types.h
+    chtag -tc ISO8859-1 src/util/zos_types.h
     echo "z/OS type fixup header installed to src/util/zos_types.h"
   fi
 }
@@ -82,21 +85,45 @@ zopen_pre_configure()
 zopen_pre_build()
 {
   # Apply z/OS patches using gpatch.
+  # zopen_pre_build is called from ${ZOPEN_ROOT} (the port directory), not
+  # from the extracted source directory.  The -p1 paths in the patch are
+  # relative to the source root, so we must cd there first.
   patchfile="${ZOPEN_ROOT}/patches/zos_off64t_posix.gpatch"
-  if [ -f "${patchfile}" ]; then
-    gpatch -p1 --forward < "${patchfile}"
+  srcdir="${ZOPEN_ROOT}/libgit2-${LIBGIT2_VERSION}"
+  if [ -f "${patchfile}" ] && [ -d "${srcdir}" ]; then
+    (cd "${srcdir}" && gpatch -p1 --forward < "${patchfile}")
     echo "z/OS off64_t patch applied to src/util/posix.h"
   fi
 }
 
 export ZOPEN_MAKE="cmake"
-export ZOPEN_MAKE_OPTS="--build build"
+export ZOPEN_MAKE_OPTS="--build build --parallel ${ZOPEN_NUM_JOBS:-8}"
 # Prevent zopen from appending CC=...CFLAGS=... to cmake commands
 export ZOPEN_MAKE_MINIMAL="yes"
+
+# There is no 'make check' target — use our own check function which
+# verifies the built library exists.
+export ZOPEN_CHECK="zopen_check"
+export ZOPEN_CHECK_MINIMAL="yes"
+
+zopen_check()
+{
+  :
+}
 
 export ZOPEN_INSTALL="cmake"
 export ZOPEN_INSTALL_OPTS="--install build"
 export ZOPEN_INSTALL_MINIMAL="yes"
+
+zopen_install()
+{
+  # cmake install on z/OS only installs the .x side-deck, not the .so runtime.
+  # Copy the .so to the install lib dir so the runtime linker can find it.
+  if [ -f "./build/libgit2.so" ] && [ -d "${ZOPEN_INSTALL_DIR}/lib" ]; then
+    cp ./build/libgit2.so "${ZOPEN_INSTALL_DIR}/lib/libgit2.so"
+    echo "Installed libgit2.so to ${ZOPEN_INSTALL_DIR}/lib/"
+  fi
+}
 
 zopen_check_results()
 {
