@@ -17,8 +17,8 @@ export ZOPEN_COMP=CLANG
 #   redeclares it with __attribute__((visibility("default"))) — a "different
 #   kind of symbol" error in ibm-clang64. _XOPEN_SOURCE=600 is sufficient
 #   and does NOT trigger __SUSV4_POSIX.
-export ZOPEN_EXTRA_CFLAGS="-include stddef.h -include stdbool.h -D_OPEN_SYS_FILE_EXT=1 -D_XOPEN_SOURCE=600"
-export ZOPEN_EXTRA_CXXFLAGS="-include stddef.h -include stdbool.h -D_OPEN_SYS_FILE_EXT=1 -D_XOPEN_SOURCE=600"
+export ZOPEN_EXTRA_CFLAGS="-include stdint.h -include sys/types.h -include stddef.h -include stdbool.h -D_OPEN_SYS_FILE_EXT=1 -D_XOPEN_SOURCE=600"
+export ZOPEN_EXTRA_CXXFLAGS="-include stdint.h -include sys/types.h -include stddef.h -include stdbool.h -D_OPEN_SYS_FILE_EXT=1 -D_XOPEN_SOURCE=600"
 
 export ZOPEN_CONFIGURE="cmake"
 export ZOPEN_CONFIGURE_OPTS="-S . -B build \
