@@ -1,0 +1,11 @@
+--- a/src/util/posix.h
++++ b/src/util/posix.h
+@@ -107,6 +107,9 @@ typedef __int64_t off64_t;
+ #elif defined(_AIX)
+ typedef long long off64_t;
++#elif defined(__MVS__)
++/* off64_t is already defined as long long in z/OS sys/types.h;
++ * redefining as int64_t (== long) causes a typedef redefinition error. */
+ #else
+ typedef int64_t off64_t;
+ #endif

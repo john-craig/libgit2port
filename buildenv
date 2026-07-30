@@ -79,6 +79,16 @@ zopen_pre_configure()
   fi
 }
 
+zopen_pre_build()
+{
+  # Apply z/OS patches using gpatch.
+  patchfile="${ZOPEN_ROOT}/patches/zos_off64t_posix.gpatch"
+  if [ -f "${patchfile}" ]; then
+    gpatch -p1 --forward < "${patchfile}"
+    echo "z/OS off64_t patch applied to src/util/posix.h"
+  fi
+}
+
 export ZOPEN_MAKE="cmake"
 export ZOPEN_MAKE_OPTS="--build build"
 # Prevent zopen from appending CC=...CFLAGS=... to cmake commands
