@@ -11,20 +11,32 @@ export ZOPEN_COMP=CLANG
 
 # On z/OS, set feature-test macros to unlock POSIX types (ssize_t, SIZE_MAX).
 # Force-include stdbool.h for bool in C files.
-# Do NOT force sys/types.h, limits.h, or _POSIX_C_SOURCE=200809L:
-#   _POSIX_C_SOURCE=200809L sets __SUSV4_POSIX which causes the system
-#   string.h to declare stpcpy via __new4302(), then zoslib's string.h
-#   redeclares it with __attribute__((visibility("default"))) — a "different
-#   kind of symbol" error in ibm-clang64. _XOPEN_SOURCE=600 is sufficient
-#   and does NOT trigger __SUSV4_POSIX.
-export ZOPEN_EXTRA_CFLAGS="-include stdint.h -include sys/types.h -include stddef.h -include stdbool.h -D_OPEN_SYS_FILE_EXT=1 -D_XOPEN_SOURCE=600"
-export ZOPEN_EXTRA_CXXFLAGS="-include stdint.h -include sys/types.h -include stddef.h -include stdbool.h -D_OPEN_SYS_FILE_EXT=1 -D_XOPEN_SOURCE=600"
+#
+# Do NOT use -D_POSIX_C_SOURCE=200809L: it sets __SUSV4_POSIX which causes
+# the system string.h to declare stpcpy via __new4302(), then zoslib's
+# string.h redeclares it with __attribute__((visibility("default"))) — a
+# "different kind of symbol" error in ibm-clang64. _XOPEN_SOURCE=600 is
+# sufficient and does NOT trigger __SUSV4_POSIX.
+#
+# Do NOT use -include sys/types.h: the zopen prefix (/usr/local/include)
+# and the zoslib include path both have sys/types.h wrappers that share
+# the same include guard (ZOS_SYS_TYPES_H). When both are in the -isystem
+# path (as CMake adds the prefix via CMAKE_PREFIX_PATH), the guard collision
+# prevents the system sys/types.h from being reached, so ssize_t stays
+# undefined. Use a bundled zos_types.h that defines ssize_t directly.
+export ZOPEN_EXTRA_CFLAGS="-include zos_types.h -include stddef.h -include stdbool.h -D_OPEN_SYS_FILE_EXT=1 -D_XOPEN_SOURCE=600"
+export ZOPEN_EXTRA_CXXFLAGS="-include zos_types.h -include stddef.h -include stdbool.h -D_OPEN_SYS_FILE_EXT=1 -D_XOPEN_SOURCE=600"
 
 export ZOPEN_CONFIGURE="cmake"
+# CMAKE_PREFIX_PATH is intentionally omitted: it adds /usr/local/include
+# to the isystem path, which contains zoslib wrapper headers that share
+# include guards with the zoslib originals in the separate zoslib isystem
+# path. The duplicate guards cause include_next chains to short-circuit,
+# leaving types like time_t and ssize_t undefined.
+# Libraries are found via PKG_CONFIG_PATH (set by zopen-config) instead.
 export ZOPEN_CONFIGURE_OPTS="-S . -B build \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX=\$ZOPEN_INSTALL_DIR \
-  -DCMAKE_PREFIX_PATH=/u/jcraig/zopen/usr/local \
   -DCMAKE_C_COMPILER=ibm-clang64 \
   -DCMAKE_CXX_COMPILER=ibm-clang++64 \
   -DCMAKE_C_STANDARD=99 \
@@ -41,8 +53,19 @@ export ZOPEN_CONFIGURE_OPTS="-S . -B build \
   -DTHREADS_FOUND=TRUE \
   -DCMAKE_HAVE_PTHREAD_CREATE=TRUE \
   -DTHREADS_HAVE_PTHREAD_ARG=OFF \
-  -DCMAKE_THREAD_LIBS_INIT="" \
+  -DCMAKE_THREAD_LIBS_INIT=\"\" \
   -DREGEX_BACKEND=builtin"
+
+zopen_pre_build()
+{
+  # Copy zos_types.h into the source tree so that -include zos_types.h
+  # (in ZOPEN_EXTRA_CFLAGS) can resolve it via the cmake -isystem src/util path.
+  if [ -f "${ZOPEN_ROOT}/zos_types.h" ]; then
+    cp "${ZOPEN_ROOT}/zos_types.h" ./src/util/zos_types.h
+    chtag -tc ISO8859-1 ./src/util/zos_types.h
+    echo "z/OS type fixup header installed to src/util/zos_types.h"
+  fi
+}
 
 export ZOPEN_MAKE="cmake"
 export ZOPEN_MAKE_OPTS="--build build"
