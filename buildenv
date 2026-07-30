@@ -24,8 +24,8 @@ export ZOPEN_COMP=CLANG
 # path (as CMake adds the prefix via CMAKE_PREFIX_PATH), the guard collision
 # prevents the system sys/types.h from being reached, so ssize_t stays
 # undefined. Use a bundled zos_types.h that defines ssize_t directly.
-export ZOPEN_EXTRA_CFLAGS="-include zos_types.h -include stddef.h -include stdbool.h -D_OPEN_SYS_FILE_EXT=1 -D_XOPEN_SOURCE=600"
-export ZOPEN_EXTRA_CXXFLAGS="-include zos_types.h -include stddef.h -include stdbool.h -D_OPEN_SYS_FILE_EXT=1 -D_XOPEN_SOURCE=600"
+export ZOPEN_EXTRA_CFLAGS="-include ${ZOPEN_ROOT}/zos_types.h -include stddef.h -include stdbool.h -D_OPEN_SYS_FILE_EXT=1 -D_XOPEN_SOURCE=600"
+export ZOPEN_EXTRA_CXXFLAGS="-include ${ZOPEN_ROOT}/zos_types.h -include stddef.h -include stdbool.h -D_OPEN_SYS_FILE_EXT=1 -D_XOPEN_SOURCE=600"
 
 export ZOPEN_CONFIGURE="cmake"
 # CMAKE_PREFIX_PATH is intentionally omitted: it adds /usr/local/include
@@ -56,10 +56,12 @@ export ZOPEN_CONFIGURE_OPTS="-S . -B build \
   -DCMAKE_THREAD_LIBS_INIT=\"\" \
   -DREGEX_BACKEND=builtin"
 
-zopen_pre_build()
+zopen_pre_configure()
 {
-  # Copy zos_types.h into the source tree so that -include zos_types.h
-  # (in ZOPEN_EXTRA_CFLAGS) can resolve it via the cmake -isystem src/util path.
+  # Copy zos_types.h into the source tree BEFORE cmake runs, so that
+  # -include zos_types.h in ZOPEN_EXTRA_CFLAGS is resolved during cmake
+  # configure-time compiler checks (which also use ZOPEN_EXTRA_CFLAGS).
+  # The file is found via the cmake -isystem .../src/util path.
   if [ -f "${ZOPEN_ROOT}/zos_types.h" ]; then
     cp "${ZOPEN_ROOT}/zos_types.h" ./src/util/zos_types.h
     chtag -tc ISO8859-1 ./src/util/zos_types.h
