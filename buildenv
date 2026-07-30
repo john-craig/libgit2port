@@ -27,19 +27,29 @@ export ZOPEN_COMP=CLANG
 export ZOPEN_EXTRA_CFLAGS="-include ${ZOPEN_ROOT}/zos_types.h -include stddef.h -include stdbool.h -D_OPEN_SYS_FILE_EXT=1 -D_XOPEN_SOURCE=600"
 export ZOPEN_EXTRA_CXXFLAGS="-include ${ZOPEN_ROOT}/zos_types.h -include stddef.h -include stdbool.h -D_OPEN_SYS_FILE_EXT=1 -D_XOPEN_SOURCE=600"
 
+# Per-package include dirs that do NOT contain zoslib wrapper headers.
+# Using these instead of the zopen prefix (/usr/local/include) prevents
+# the include-guard collision that breaks ssize_t/time_t/pthread_t.
+ZOPEN_PREFIX=/u/jcraig/zopen/usr/local
+ZOPEN_OPENSSL_INC=${ZOPEN_PREFIX}/zopen/openssl/openssl/include
+ZOPEN_ZLIB_INC=${ZOPEN_PREFIX}/zopen/zlib/zlib/include
+ZOPEN_LIBSSH2_INC=${ZOPEN_PREFIX}/zopen/libssh2/libssh2/include
+
 export ZOPEN_CONFIGURE="cmake"
-# CMAKE_PREFIX_PATH is intentionally omitted: it adds /usr/local/include
-# to the isystem path, which contains zoslib wrapper headers that share
-# include guards with the zoslib originals in the separate zoslib isystem
-# path. The duplicate guards cause include_next chains to short-circuit,
-# leaving types like time_t and ssize_t undefined.
-# Libraries are found via PKG_CONFIG_PATH (set by zopen-config) instead.
+# CMAKE_PREFIX_PATH is kept for library (.a/.x) discovery.
+# Library-specific INCLUDE_DIR overrides redirect cmake away from the
+# consolidated /usr/local/include (which has duplicate zoslib wrappers
+# that share include guards with the real zoslib include dir).
 export ZOPEN_CONFIGURE_OPTS="-S . -B build \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX=\$ZOPEN_INSTALL_DIR \
+  -DCMAKE_PREFIX_PATH=${ZOPEN_PREFIX} \
   -DCMAKE_C_COMPILER=ibm-clang64 \
   -DCMAKE_CXX_COMPILER=ibm-clang++64 \
   -DCMAKE_C_STANDARD=99 \
+  -DOPENSSL_INCLUDE_DIR=${ZOPEN_OPENSSL_INC} \
+  -DZLIB_INCLUDE_DIR=${ZOPEN_ZLIB_INC} \
+  -DLIBSSH2_INCLUDE_DIRS=${ZOPEN_LIBSSH2_INC} \
   -DBUILD_SHARED_LIBS=ON \
   -DBUILD_TESTS=OFF \
   -DBUILD_CLI=OFF \
